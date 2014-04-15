@@ -13,7 +13,7 @@ def printLog (logS)
 end
 
 opt_parser = OptionParser.new do |opt|
-  opt.banner = "Usage: record_post [OPTIONS] field=value ..."
+  opt.banner = "Usage: deleteRecordsByPeriod [OPTIONS]"
 
   options[:verbose] = false
   opt.on( '-v', '--verbose', 'Output more information') do
@@ -34,6 +34,11 @@ opt_parser = OptionParser.new do |opt|
   opt.on( '-E', '--dateEnd end', 'YYYY-MM-DD to stop checking for duplicates') do |dateEnd|
     options[:dateEnd] = dateEnd
   end
+  
+  options[:sleepTime] = 30
+  opt.on( '-s', '--sleep sleepTime', 'time to wait to allow other queries to be performed by DB') do |sleepTime|
+    options[:sleepTime] = sleepTime
+  end 
 
   opt.on( '-h', '--help', 'Print this screen') do
     puts opt
@@ -60,33 +65,24 @@ begin
   if (options[:dateStart] =~ /(.*)daysago/)
     options[:dateStart] = (DateTime.now-$1.to_i).to_s
   end
-  puts "#{options[:dateEnd].to_s} -- #{options[:dateStart].to_s}"
+  puts "Will delete records from:#{options[:dateStart].to_s} -- #{options[:dateEnd].to_s}, you've got 10 seconds to kill the command"
+  sleep 10
   s = DateTime.parse(options[:dateStart])
   e = DateTime.parse(options[:dateEnd])
   s.upto(e) do |day|
     lsString = day.strftime("%Y-%m-%d")
     leString = (day+1).strftime("%Y-%m-%d")
-    printLog "SELECT uniqueChecksum,count(dgJobId) as count FROM jobTransSummary WHERE endDate >=? and endDate <? GROUP BY uniqueChecksum HAVING count(dgJobId) > 1, #{lsString},#{leString}"
-    queryStmt = con.prepare("SELECT uniqueChecksum,count(dgJobId) as count FROM jobTransSummary WHERE endDate >=? and endDate <? GROUP BY uniqueChecksum HAVING count(dgJobId) > 1")
-    queryStmt.execute(lsString,leString)
-    printLog "Found #{queryStmt.num_rows} to DELETE in #{day} -> #{day+1}"  
-    rows = []
-    while row = queryStmt.fetch do
-      if (options[:dryrun])
-        printLog "DRYRUN -- #{row[0]}" if row[0]
+    printLog "Deleting records in date: #{lsString}"
+    if (options[:dryrun])
+        printLog "DRYRUN -- DELETE from jobTransSummary where endDate >=#{lsString} and endDate<#{leString}"
       else
         if ( options[:verbose])
-          printLog "DELETE FROM jobTransSummary WHERE uniqueChecksum=\"#{row[0]}\" AND accountingProcedure='outOfBand'" if row[0]
+          printLog "DRYRUN -- DELETE from jobTransSummary where endDate >=#{lsString} and endDate<#{leString}"
         end
-        deleteStmt = con.prepare("DELETE FROM jobTransSummary WHERE uniqueChecksum=? AND accountingProcedure='outOfBand' AND endDate >=? AND endDate <?")
-        deleteStmt.execute(row[0],lsString,leString) if row[0]
-        deleteStmt2 = con.prepare("DELETE FROM jobTransSummary WHERE uniqueChecksum=? AND dgJobId LIKE '%/_' AND endDate >=? AND endDate <?")
-        deleteStmt2.execute(row[0],lsString,leString) if row[0]
-        deleteStmt3 = con.prepare("DELETE FROM jobTransSummary WHERE uniqueChecksum=? AND dgJobId LIKE '%/__' AND endDate >=? AND endDate <?")
-        deleteStmt3.execute(row[0],lsString,leString) if row[0]
+        deleteStmt = con.prepare("DELETE FROM jobTransSummary WHERE endDate >=? AND endDate <?")
+        deleteStmt.execute(lsString,leString)
       end
-    end
-    sleep values['sleep'].to_i if values['sleep']
+    sleep options[:sleepTime].to_i
   end
 
 
