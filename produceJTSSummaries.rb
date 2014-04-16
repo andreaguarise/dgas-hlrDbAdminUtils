@@ -65,25 +65,40 @@ begin
   if (options[:dateStart] =~ /(.*)daysago/)
     options[:dateStart] = (DateTime.now-$1.to_i).to_s
   end
-  puts "Will delete records from:#{options[:dateStart].to_s} -- #{options[:dateEnd].to_s}, you've got 10 seconds to kill the command"
+  puts "Will summarize records from:#{options[:dateStart].to_s} -- #{options[:dateEnd].to_s}, you've got 10 seconds to kill the command"
   sleep 10
   s = DateTime.parse(options[:dateStart])
   e = DateTime.parse(options[:dateEnd])
-  s.upto(e) do |day|
-    lsString = day.strftime("%Y-%m-%d")
-    leString = (day+1).strftime("%Y-%m-%d")
-    printLog "Deleting records in date: #{lsString}"
+    tableName = "summary_jts_#{s.strftime("%Y_%m_%d")}_#{e.strftime("%Y_%m_%d")}"
+    lsString = s.strftime("%Y-%m-%d")
+    leString = e.strftime("%Y-%m-%d")
     if (options[:dryrun])
-        printLog "DRYRUN -- DELETE from jobTransSummary where endDate >=#{lsString} and endDate<#{leString}"
-      else
+        printLog "DRYRUN -- Aggregating: endDate >=#{lsString} and endDate<#{leString}"
+    else
         if ( options[:verbose])
-          printLog "QUERY: -- DELETE from jobTransSummary where endDate >=#{lsString} and endDate<#{leString}"
+          printLog "Aggregating endDate >=#{lsString} and endDate<#{leString}"
         end
-        deleteStmt = con.prepare("DELETE LOW_PRIORITY FROM jobTransSummary WHERE endDate >=? AND endDate <?")
-        deleteStmt.execute(lsString,leString)
-      end
-    sleep options[:sleepTime].to_i
-  end
+        queryStmt = con.prepare("create table #{tableName} AS SELECT siteName,
+    date(endDate) AS record_date,
+    userVo,substring_index(userFqan,';',1) as primFqan,
+    gridUser,
+    localUserId,
+    voOrigin,
+    count(*) as records,
+    UNIX_TIMESTAMP(min(endDate)) as start_timestamp,
+    UNIX_TIMESTAMP(max(endDate)) as end_timestamp,
+    sum(wallTime)/3600 as wall_hrs,
+    sum(cpuTime)/3600 as cpu_hrs,
+    avg(iBench) as iBench    
+    FROM hlr.jobTransSummary 
+    WHERE endDate>= ? and endDate < ? 
+    GROUP BY siteName,record_date,userVo,primFqan,gridUser,localUserId,voOrigin")
+        queryStmt.execute(lsString,leString)
+        #queryStmt.execute(lsString,leString)
+        
+    end
+    
+      
 
 
 rescue Mysql::Error => e
