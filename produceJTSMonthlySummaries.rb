@@ -26,9 +26,9 @@ opt_parser = OptionParser.new do |opt|
     options[:dryrun] = true
   end
 
-  options[:dateStart] = nil
-  opt.on( '-S', '--dateStart start', 'YYYY-MM-DD to start producing summaries') do |dateStart|
-    options[:dateStart] = dateStart
+  options[:months] = nil
+  opt.on( '-M', '--Months months', 'Numbero of months to aggregate, one table per month will be produced') do |months|
+    options[:months] = months
   end
 
   options[:dateEnd] = nil
@@ -59,12 +59,22 @@ $stdout.sync = true
   if (options[:dateEnd] == "now")
     options[:dateEnd] = DateTime.now.to_s
   end
-  if (options[:dateStart] =~ /(.*)daysago/)
-    options[:dateStart] = (DateTime.now-$1.to_i).to_s
+  if (options[:dateEnd] =~ /(.*)daysago/)
+    options[:dateEnd] = (DateTime.now-$1.to_i).to_s
   end
+  dateEnd = DateTime.new(DateTime.parse(options[:dateEnd]).year,DateTime.parse(options[:dateEnd]).month,1)
+  #startDate = DateTime.parse(options[:dateEnd])
   jts = JTS.new values['dbhost'], values['dbuser'], values['dbpasswd'], values['dbname']
   jts.dryrun=options[:dryrun]
-  jts.summarizePeriod(options[:dateStart],options[:dateEnd])
+  i = 1
+  while i < (options[:months].to_i + 1)
+    dss = (dateEnd << i).strftime("%Y-%m-%d")
+    des = (dateEnd << i -1).strftime("%Y-%m-%d")
+    puts "From #{dss} to #{des}"
+    jts.summarizePeriod(dss,des)
+    i =  i + 1
+  end
+  
 
 puts
 

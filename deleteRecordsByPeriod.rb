@@ -26,12 +26,12 @@ opt_parser = OptionParser.new do |opt|
   end
 
   options[:dateStart] = nil
-  opt.on( '-S', '--dateStart start', 'YYYY-MM-DD to start check duplicates') do |dateStart|
+  opt.on( '-S', '--dateStart start', 'YYYY-MM-DD to start delete records') do |dateStart|
     options[:dateStart] = dateStart
   end
 
   options[:dateEnd] = nil
-  opt.on( '-E', '--dateEnd end', 'YYYY-MM-DD to stop checking for duplicates') do |dateEnd|
+  opt.on( '-E', '--dateEnd end', 'YYYY-MM-DD to stop deleting records') do |dateEnd|
     options[:dateEnd] = dateEnd
   end
   

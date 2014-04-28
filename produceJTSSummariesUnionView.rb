@@ -64,7 +64,10 @@ $stdout.sync = true
   end
   jts = JTS.new values['dbhost'], values['dbuser'], values['dbpasswd'], values['dbname']
   jts.dryrun=options[:dryrun]
-  jts.summarizePeriod(options[:dateStart],options[:dateEnd])
-
+  tables = jts.getSummaryTables
+  tables.each do |t|
+    puts t
+  end
+  puts jts.createSummaryUnionView
 puts
 
